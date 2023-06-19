@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
+use log::{debug, error, info, warn};
 use serde_json;
 
 use crate::errors::{DeserializationError, ServerError};
@@ -94,14 +95,14 @@ impl<R: Read, W: Write> Server<R, W> {
               {
                 return Err(ServerError::IoError);
               }
-              let request: Request =
-                match serde_json::from_str(std::str::from_utf8(content.as_slice()).unwrap()) {
-                  Ok(val) => val,
-                  Err(e) => {
-                    return Err(ServerError::ParseError(DeserializationError::SerdeError(e)));
-                  }
-                };
-
+              let content = std::str::from_utf8(content.as_slice()).unwrap();
+              let request: Request = match serde_json::from_str(content) {
+                Ok(val) => val,
+                Err(e) => {
+                  return Err(ServerError::ParseError(DeserializationError::SerdeError(e)));
+                }
+              };
+              info!("Stdin: {content}");
               return Ok(Some(request));
             }
           }
@@ -121,6 +122,7 @@ impl<R: Read, W: Write> Server<R, W> {
     .unwrap();
 
     write!(self.output_buffer, "{}\r\n", resp_json).unwrap();
+    info!("Stdout: {resp_json}");
     self.output_buffer.flush().unwrap();
     Ok(())
   }
