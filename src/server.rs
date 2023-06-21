@@ -16,8 +16,6 @@ use crate::{
 enum ServerState {
   /// Expecting a header
   Header,
-  /// Expecting a separator between header and content, i.e. "\r\n"
-  Sep,
   /// Expecting content
   Content,
 }
@@ -33,7 +31,7 @@ pub struct Server<R: Read, W: Write> {
 }
 
 impl<R: Read, W: Write> Server<R, W> {
-  /// Construct a new Server and take ownership of the adapter and client.
+  /// Construct a new Server using the given input and output streams.
   pub fn new(input: BufReader<R>, output: BufWriter<W>) -> Self {
     Self {
       input_buffer: input,
@@ -42,9 +40,9 @@ impl<R: Read, W: Write> Server<R, W> {
     }
   }
 
-  /// Run the server.
+  /// Wait for a request from the development tool
   ///
-  /// This will start reading the `input` buffer that is passed to it and will try to interpert
+  /// This will start reading the `input` buffer that is passed to it and will try to interpret
   /// the incoming bytes according to the DAP protocol.
   pub fn poll_request(&mut self) -> Result<Option<Request>, ServerError> {
     let mut state = ServerState::Header;
@@ -69,7 +67,7 @@ impl<R: Read, W: Write> Server<R, W> {
                     };
                     buffer.clear();
                     buffer.reserve(content_length);
-                    state = ServerState::Sep;
+                    state = ServerState::Content;
                   }
                   other => {
                     return Err(ServerError::UnknownHeader {
@@ -81,20 +79,23 @@ impl<R: Read, W: Write> Server<R, W> {
                 return Err(ServerError::HeaderParseError { line: buffer });
               }
             }
-            ServerState::Sep => {
-              if buffer == "\r\n" {
-                state = ServerState::Content;
-                buffer.clear();
-              }
-            }
             ServerState::Content => {
-              while read_size < content_length {
-                read_size += self.input_buffer.read_line(&mut buffer).unwrap();
+              buffer.clear();
+              let mut content = vec![0; content_length];
+              if self
+                .input_buffer
+                .read_exact(content.as_mut_slice())
+                .is_err()
+              {
+                return Err(ServerError::IoError);
               }
-              let request: Request = match serde_json::from_str(&buffer) {
-                Ok(val) => val,
-                Err(e) => return Err(ServerError::ParseError(DeserializationError::SerdeError(e))),
-              };
+              let request: Request =
+                match serde_json::from_str(std::str::from_utf8(content.as_slice()).unwrap()) {
+                  Ok(val) => val,
+                  Err(e) => {
+                    return Err(ServerError::ParseError(DeserializationError::SerdeError(e)));
+                  }
+                };
               return Ok(Some(request));
             }
           }
@@ -120,7 +121,7 @@ impl<R: Read, W: Write> Server<R, W> {
     )
     .unwrap();
 
-    write!(self.output_buffer, "{}", resp_json).unwrap();
+    write!(self.output_buffer, "{}\r\n", resp_json).unwrap();
     self.output_buffer.flush().unwrap();
     Ok(())
   }
