@@ -3,11 +3,12 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
 use serde_json;
 
-use crate::errors::{DeserializationError, ServerError};
-use crate::protocol_message::Sendable;
-use crate::requests::Request;
 use crate::{
-  events::Event, protocol_message::DAPMessage, responses::Response,
+  base_message::{BaseMessage, Sendable},
+  errors::{DeserializationError, ServerError},
+  events::Event,
+  requests::Request,
+  responses::Response,
   reverse_requests::ReverseRequest,
 };
 
@@ -21,15 +22,14 @@ enum ServerState {
   Content,
 }
 
-/// Ties together an Adapter and a Client.
+/// Handles message encoding and decoding of messages.
 ///
 /// The `Server` is responsible for reading the incoming bytestream and constructing deserialized
-/// requests from it; calling the `accept` function of the `Adapter` and passing the response
-/// to the client.
+/// requests from it, as well as constructing and serializing outgoing messages.
 pub struct Server<R: Read, W: Write> {
   input_buffer: BufReader<R>,
   output_buffer: BufWriter<W>,
-  seq: i64,
+  sequence_number: i64,
 }
 
 impl<R: Read, W: Write> Server<R, W> {
@@ -38,13 +38,8 @@ impl<R: Read, W: Write> Server<R, W> {
     Self {
       input_buffer: input,
       output_buffer: output,
-      seq: 0,
+      sequence_number: 0,
     }
-  }
-
-  fn next_seq(&mut self) -> i64 {
-    self.seq += 1;
-    self.seq
   }
 
   /// Run the server.
@@ -109,7 +104,14 @@ impl<R: Read, W: Write> Server<R, W> {
     }
   }
 
-  pub fn send(&mut self, message: DAPMessage) -> Result<(), ServerError> {
+  pub fn send(&mut self, body: Sendable) -> Result<(), ServerError> {
+    self.sequence_number += 1;
+
+    let message = BaseMessage {
+      seq: self.sequence_number,
+      message: body,
+    };
+
     let resp_json = serde_json::to_string(&message).map_err(ServerError::SerializationError)?;
     write!(
       self.output_buffer,
@@ -118,32 +120,20 @@ impl<R: Read, W: Write> Server<R, W> {
     )
     .unwrap();
 
-    write!(self.output_buffer, "{}\r\n", resp_json).unwrap();
+    write!(self.output_buffer, "{}", resp_json).unwrap();
     self.output_buffer.flush().unwrap();
     Ok(())
   }
 
   pub fn respond(&mut self, response: Response) -> Result<(), ServerError> {
-    let message = DAPMessage {
-      seq: self.next_seq(),
-      message: Sendable::Response(response),
-    };
-    self.send(message)
+    self.send(Sendable::Response(response))
   }
 
   pub fn send_event(&mut self, event: Event) -> Result<(), ServerError> {
-    let message = DAPMessage {
-      seq: self.next_seq(),
-      message: Sendable::Event(event),
-    };
-    self.send(message)
+    self.send(Sendable::Event(event))
   }
 
   pub fn send_reverse_request(&mut self, request: ReverseRequest) -> Result<(), ServerError> {
-    let message = DAPMessage {
-      seq: self.next_seq(),
-      message: Sendable::ReverseRequest(request),
-    };
-    self.send(message)
+    self.send(Sendable::ReverseRequest(request))
   }
 }
