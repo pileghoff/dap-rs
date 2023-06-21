@@ -51,7 +51,7 @@ impl<R: Read, W: Write> Server<R, W> {
 
     loop {
       match self.input_buffer.read_line(&mut buffer) {
-        Ok(mut read_size) => {
+        Ok(read_size) => {
           if read_size == 0 {
             break Ok(None);
           }
