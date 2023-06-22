@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+extern crate log;
 
+use log::*;
 use serde_json;
 
 use crate::{
@@ -55,6 +57,8 @@ impl<R: Read, W: Write> Server<R, W> {
           if read_size == 0 {
             break Ok(None);
           }
+
+          info!("stdin: {}", buffer);
           match state {
             ServerState::Header => {
               let parts: Vec<&str> = buffer.trim_end().split(':').collect();
@@ -89,13 +93,15 @@ impl<R: Read, W: Write> Server<R, W> {
               {
                 return Err(ServerError::IoError);
               }
-              let request: Request =
-                match serde_json::from_str(std::str::from_utf8(content.as_slice()).unwrap()) {
-                  Ok(val) => val,
-                  Err(e) => {
-                    return Err(ServerError::ParseError(DeserializationError::SerdeError(e)));
-                  }
-                };
+              let content = std::str::from_utf8(content.as_slice()).unwrap();
+              info!("stdin: {}", content);
+              let request: Request = match serde_json::from_str(content) {
+                Ok(val) => val,
+                Err(e) => {
+                  error!("Could not decode message: {}", e);
+                  return Err(ServerError::ParseError(DeserializationError::SerdeError(e)));
+                }
+              };
               return Ok(Some(request));
             }
           }
@@ -123,6 +129,7 @@ impl<R: Read, W: Write> Server<R, W> {
 
     write!(self.output_buffer, "{}\r\n", resp_json).unwrap();
     self.output_buffer.flush().unwrap();
+    info!("stdout: {}", resp_json);
     Ok(())
   }
 
