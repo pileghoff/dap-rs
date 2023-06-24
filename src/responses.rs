@@ -514,9 +514,6 @@ pub enum ResponseBody {
 
 /// Represents response to the client.
 ///
-/// Note that unlike the specification, this implementation does not define a ProtocolMessage base
-/// interface. Instead, the only common part (the sequence number) is repeated in the struct.
-///
 /// The command field (which is a string) is used as a tag in the ResponseBody enum, so users
 /// of this crate will control it by selecting the appropriate enum variant for the body.
 ///
@@ -528,6 +525,7 @@ pub enum ResponseBody {
 #[serde(rename_all = "camelCase")]
 pub struct Response {
   /// Sequence number of the corresponding request.
+  #[serde(rename = "request_seq")]
   pub request_seq: i64,
   /// Outcome of the request.
   /// If true, the request was successful and the `body` attribute may contain
