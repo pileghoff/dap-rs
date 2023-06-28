@@ -1,3 +1,4 @@
+use derive_more::From;
 use serde::Serialize;
 
 use crate::{events::Event, responses::Response, reverse_requests::ReverseRequest};
@@ -14,7 +15,7 @@ pub struct BaseMessage {
   pub message: Sendable,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, From)]
 #[serde(rename_all = "lowercase")]
 #[serde(tag = "type")]
 pub enum Sendable {
