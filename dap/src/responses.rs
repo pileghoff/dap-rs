@@ -13,6 +13,7 @@ pub enum ResponseMessage {
   Cancelled,
   /// Contains the raw error in short form if [`Response::success`](Response::success) is false.
   /// This raw error might be interpreted by the client and is not shown in the UI.
+  #[serde(untagged)]
   Error(String),
 }
 
@@ -539,7 +540,7 @@ pub enum ResponseBody {
   /// Specification: [Variables request](https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Variables)
   Variables(VariablesResponse),
   /// Response to `writeMemory` request.
-  /// 
+  ///
   /// NOTE: we are straying away from the spec here, as the spec says that the response body is
   /// optional, but we are always returning a body because I could not find a way to express
   /// skipping the optional body with serde (and serializing null will make the schema validation
