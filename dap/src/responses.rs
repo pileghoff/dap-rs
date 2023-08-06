@@ -140,7 +140,7 @@ pub struct GotoTargetsResponse {
 #[cfg_attr(feature = "integration_testing", derive(Dummy))]
 pub struct LoadedSourcesResponse {
   /// Set of loaded sources.
-  pub sources: Vec<Source>,
+  pub sources: Source,
 }
 
 #[derive(Serialize, Debug, Default, Clone)]
@@ -166,8 +166,7 @@ pub struct ReadMemoryResponse {
   /// read byte.
   /// This can be used to determine the i64 of bytes that should be skipped
   /// before a subsequent `readMemory` request succeeds.
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub unreadable_bytes: Option<i64>,
+  pub unreadable_bytes: i64,
   /// The bytes read from memory, encoded using base64.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub data: Option<String>,
@@ -212,8 +211,7 @@ pub struct SetExceptionBreakpointsResponse {
   /// If both `filters` and `filterOptions` are given, the returned array must
   /// start with `filters` information first, followed by `filterOptions`
   /// information.
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub breakpoints: Option<Vec<Breakpoint>>,
+  pub breakpoints: Vec<Breakpoint>,
 }
 
 #[derive(Serialize, Debug, Default, Clone)]
@@ -242,8 +240,7 @@ pub struct SetVariableResponse {
   pub value: String,
   /// The type of the new value. Typically shown in the UI when hovering over
   /// the value.
-  #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-  pub type_field: Option<String>,
+  pub type_field: String,
   /// If `variablesReference` is > 0, the new value is structured and its
   /// children can be retrieved by passing `variablesReference` to the
   /// `variables` request.
